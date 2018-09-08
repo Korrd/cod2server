@@ -1,0 +1,65 @@
+node {
+
+  timeout(BUILD_TIMEOUT_COD2.toInteger()) {
+    try {
+
+      checkout scm
+
+      stage("variables setup") {
+
+        env.IMAGE_TAG = "latest"
+        env.IMAGE_REPO = "korrd2/cod2server"
+        env.GITHUB_REPO = "cod2server"
+
+        withCredentials([usernamePassword(credentialsId: 'DOCKER', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+          env.DOCKER_USERNAME = "$DOCKER_USERNAME"
+          env.DOCKER_PASSWORD = "$DOCKER_PASSWORD"
+          sh "docker login -u='$DOCKER_USERNAME' -p='$DOCKER_PASSWORD'"
+        }
+      }
+
+      stage("build") {
+        withCredentials([string(credentialsId: "COD2_USR_PASSWORD", variable: "COD2_USR_PASSWORD")]) {
+          env.COD2_USR_PASSWORD = "$COD2_USR_PASSWORD"
+          sh "docker build --rm --pull --build-arg COD2_USR_PASSWORD=$COD2_USR_PASSWORD -t '$IMAGE_REPO:$BUILD_NUMBER' ."
+        }
+      }
+
+      stage("push") {
+
+        if (env.BRANCH_NAME == "master") {
+          sh "docker tag '$IMAGE_REPO:$BUILD_NUMBER' '$IMAGE_REPO:$IMAGE_TAG'"
+          sh "docker push '$IMAGE_REPO:$IMAGE_TAG'"
+        } else {
+
+          def SANITIZED_BRANCH_NAME = "${sanitizedBranchName(BRANCH_NAME)}"
+
+          sh "docker tag '$IMAGE_REPO:$BUILD_NUMBER' '$IMAGE_REPO:$SANITIZED_BRANCH_NAME'"
+          sh "docker push '$IMAGE_REPO:$SANITIZED_BRANCH_NAME'"
+        }
+
+      }
+
+      slackSend color: 'good', message: "Branch `$BRANCH_NAME` from repo `$GITHUB_REPO` has built successfully"
+
+    } catch (err) {
+
+      sh "echo $err"
+      currentBuild.result = 'FAILURE'
+
+      slackSend color: 'bad', message: "*$currentBuild.result*: Branch `$BRANCH_NAME` from repo `$GITHUB_REPO` has failed to build \n - *Link* \n ${BUILD_URL}console \n - *Error Message* ```$err```"
+
+    } finally {
+
+      /* Clean up workspace */
+      deleteDir()
+
+    }
+  }
+}
+
+def sanitizedBranchName(branchName) {
+  // Remove the verb from the branch (add/...)
+  // and replace all dots with dashes
+  "${branchName.split('/')[1].replaceAll('\\.', '-')}"
+}
