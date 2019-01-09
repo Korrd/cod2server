@@ -18,5 +18,5 @@ Super simple! Just run the following command, and feel free to connect and pew p
 
 ## Credits
 
-This version is based off the one at [linuxgsm](https://linuxgsm.com/lgsm/cod2server). Thank you for your hard work!
+This version is based on the one at [linuxgsm](https://linuxgsm.com/lgsm/cod2server). Thank you for your hard work!
 Feel free to drop by their site and give them a thumbs up :)
